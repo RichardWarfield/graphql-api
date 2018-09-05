@@ -110,24 +110,29 @@ data QueryDocument value
 data Operation value
   = Query VariableDefinitions (Directives value) (SelectionSetByType value)
   | Mutation VariableDefinitions (Directives value) (SelectionSetByType value)
+  | Subscription VariableDefinitions (Directives value) (SelectionSetByType value)
   deriving (Eq, Show)
 
 instance Functor Operation where
   fmap f (Query vars directives selectionSet) = Query vars (fmap f directives) (fmap f selectionSet)
   fmap f (Mutation vars directives selectionSet) = Mutation vars (fmap f directives) (fmap f selectionSet)
+  fmap f (Subscription vars directives selectionSet) = Subscription vars (fmap f directives) (fmap f selectionSet)
 
 instance Foldable Operation where
   foldMap f (Query _ directives selectionSet) = foldMap f directives `mappend` foldMap f selectionSet
   foldMap f (Mutation _ directives selectionSet) = foldMap f directives `mappend` foldMap f selectionSet
+  foldMap f (Subscription _ directives selectionSet) = foldMap f directives `mappend` foldMap f selectionSet
 
 instance Traversable Operation where
   traverse f (Query vars directives selectionSet) = Query vars <$> traverse f directives <*> traverse f selectionSet
   traverse f (Mutation vars directives selectionSet) = Mutation vars <$> traverse f directives <*> traverse f selectionSet
+  traverse f (Subscription vars directives selectionSet) = Subscription vars <$> traverse f directives <*> traverse f selectionSet
 
 -- | Get the selection set for an operation.
 getSelectionSet :: Operation value -> SelectionSetByType value
 getSelectionSet (Query _ _ ss) = ss
 getSelectionSet (Mutation _ _ ss) = ss
+getSelectionSet (Subscription _ _ ss) = ss
 
 -- | Type alias for 'Query' and 'Mutation' constructors of 'Operation'.
 type OperationType value = VariableDefinitions -> Directives value -> SelectionSetByType value -> Operation value
@@ -167,6 +172,7 @@ validate schema (AST.QueryDocument defns) = runValidator $ do
     splitOps (AST.AnonymousQuery ss) = Left ss
     splitOps (AST.Query node@(AST.Node maybeName _ _ _)) = Right (maybeName, (Query, node))
     splitOps (AST.Mutation node@(AST.Node maybeName _ _ _)) = Right (maybeName, (Mutation, node))
+    splitOps (AST.Subscription node@(AST.Node maybeName _ _ _)) = Right (maybeName, (Subscription, node))
 
     assertAllFragmentsUsed :: Fragments value -> Set (Maybe Name) -> Validation ()
     assertAllFragmentsUsed fragments used =
@@ -200,6 +206,15 @@ validateOperation (Query vars directives selectionSet) = do
   resolveVariables vars validValues
 validateOperation (Mutation vars directives selectionSet) = do
   validValues <- Mutation vars <$> validateValues directives <*> validateValues selectionSet
+  -- Instead of doing this, we could build up a list of used variables as we
+  -- resolve them.
+  let usedVariables = getVariables validValues
+  let definedVariables = getDefinedVariables vars
+  let unusedVariables = definedVariables `Set.difference` usedVariables
+  unless (Set.null unusedVariables) $ throwE (UnusedVariables unusedVariables)
+  resolveVariables vars validValues
+validateOperation (Subscription vars directives selectionSet) = do
+  validValues <- Subscription vars <$> validateValues directives <*> validateValues selectionSet
   -- Instead of doing this, we could build up a list of used variables as we
   -- resolve them.
   let usedVariables = getVariables validValues

@@ -30,6 +30,7 @@ schemaDocument (AST.SchemaDocument defs) = (`snoc` '\n') . mconcat $ typeDefinit
 operationDefinition :: AST.OperationDefinition -> Text
 operationDefinition (AST.Query    n) = "query "    <> node n
 operationDefinition (AST.Mutation n) = "mutation " <> node n
+operationDefinition (AST.Subscription n) = "subscription " <> node n
 operationDefinition (AST.AnonymousQuery ss) = selectionSet ss
 
 node :: AST.Node -> Text

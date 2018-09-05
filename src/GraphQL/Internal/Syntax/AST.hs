@@ -77,6 +77,7 @@ newtype SchemaDocument = SchemaDocument [TypeDefinition] deriving (Eq, Show)
 data OperationDefinition
   = Query Node
   | Mutation Node
+  | Subscription Node
   | AnonymousQuery SelectionSet
   deriving (Eq,Show)
 

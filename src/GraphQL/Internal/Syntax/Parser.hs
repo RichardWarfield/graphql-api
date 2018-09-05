@@ -51,6 +51,7 @@ operationDefinition :: Parser AST.OperationDefinition
 operationDefinition =
       AST.Query    <$ tok "query"    <*> node
   <|> AST.Mutation <$ tok "mutation" <*> node
+  <|> AST.Subscription <$ tok "subscription" <*> node
   <|> (AST.AnonymousQuery <$> selectionSet)
   <?> "operationDefinition error!"
 
